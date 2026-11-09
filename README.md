@@ -29,7 +29,7 @@ The API listens on `http://localhost:5080`:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/transactions` | Ingest a transaction. `201` with `{ transactionId, outcome: "Created" }` for a new id, `200` with `outcome: "Updated"` for an existing one, `400` for invalid input (see [Validation](#validation)) |
+| `POST /api/transactions` | Ingest a transaction. `201` with `{ transactionId, outcome: "Created" }` for a new id, `200` with `outcome: "Updated"` for an existing one, `200` with `outcome: "IgnoredStale"` for an out-of-order update, `400` for invalid input (see [Validation](#validation)) |
 | `GET /api/transactions` | Snapshot of the latest transactions (used by the dashboard on load) |
 | `/hubs/transactions` | SignalR hub; pushes a `TransactionUpdated` event with every change |
 | `GET /healthz` | Health check for Kubernetes probes |
@@ -92,6 +92,22 @@ A transaction follows the assignment's JSON structure:
 - `amount` is `decimal`, never `double`, so money values are not affected by binary floating-point rounding.
 - `Transaction` is an immutable `record`; an update replaces the stored instance.
 - Storage is in memory (`InMemoryTransactionRepository`, behind `ITransactionRepository`).
+
+### Update rules
+
+- **Older timestamp is ignored.** The external system may deliver updates out of order. An update whose
+  `timestamp` is older than the stored one is not saved and not broadcast; the API answers `200` with
+  `outcome: "IgnoredStale"` (it is expected behavior, not an error).
+- **Equal timestamp is accepted** as an update, so a `Pending → Completed` change within the same second is not
+  lost and a retried request does not fail. Different transactions may share a timestamp.
+- **No status lifecycle is enforced.** The timestamp is the only rule, so `Failed → Completed` (e.g. a successful
+  retry) is accepted if it is newer. The external system is the source of truth; this is a monitor.
+- **Capacity.** The server keeps the latest 1000 transactions (`Transactions:Capacity` in `appsettings.json`).
+  When a new transaction arrives at capacity, the one with the oldest timestamp is removed. Without a bound,
+  memory would grow forever.
+
+**Known limitation:** once a transaction has been evicted, its timestamp is forgotten. A stale update for it that
+arrives later is stored as a new transaction (`Created`) instead of being ignored. Acceptable for this MVP.
 
 ## Backend architecture
 

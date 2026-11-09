@@ -45,6 +45,17 @@ public class TransactionServiceTests
     }
 
     [Fact]
+    public async Task Stale_transaction_is_not_broadcast()
+    {
+        _repository.Upsert(_transaction).Returns(UpsertResult.IgnoredStale);
+
+        var result = await _service.ProcessAsync(_transaction, CancellationToken.None);
+
+        result.ShouldBe(UpsertResult.IgnoredStale);
+        await _notifier.DidNotReceive().NotifyAsync(Arg.Any<Transaction>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Broadcast_data_is_exactly_what_was_stored()
     {
         Transaction? stored = null;

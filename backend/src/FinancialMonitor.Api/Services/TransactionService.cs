@@ -14,7 +14,11 @@ public class TransactionService(ITransactionRepository repository, ITransactionN
     {
         // Store first, then broadcast: clients are only told about data that is already persisted.
         var result = repository.Upsert(transaction);
-        await notifier.NotifyAsync(transaction, cancellationToken);
+
+        // A stale update changed nothing, so there is nothing to tell the clients.
+        if (result != UpsertResult.IgnoredStale)
+            await notifier.NotifyAsync(transaction, cancellationToken);
+
         return result;
     }
 

@@ -18,7 +18,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Singletons: the repository holds the shared in-memory state; service and notifier are stateless.
-builder.Services.AddSingleton<ITransactionRepository, InMemoryTransactionRepository>();
+// Bounded so memory cannot grow without limit (in Kubernetes that would end in OOMKilled).
+var capacity = builder.Configuration.GetValue("Transactions:Capacity", InMemoryTransactionRepository.DefaultCapacity);
+builder.Services.AddSingleton<ITransactionRepository>(new InMemoryTransactionRepository(capacity));
 builder.Services.AddSingleton<ITransactionNotifier, SignalRTransactionNotifier>();
 builder.Services.AddSingleton<ITransactionService, TransactionService>();
 

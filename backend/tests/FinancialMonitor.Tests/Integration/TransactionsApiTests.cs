@@ -53,6 +53,47 @@ public class TransactionsApiTests(WebApplicationFactory<Program> factory)
         body.ShouldBe(new IngestResponse(id, "Updated"));
     }
 
+    [Fact]
+    public async Task Post_with_older_timestamp_returns_200_IgnoredStale_and_Get_keeps_the_newer_value()
+    {
+        var id = Guid.NewGuid();
+        await PostAsync(id, "Completed", BaseTime.AddSeconds(5));
+
+        var response = await PostAsync(id, "Pending", BaseTime);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<IngestResponse>();
+        body.ShouldBe(new IngestResponse(id, "IgnoredStale"));
+
+        var all = await _client.GetFromJsonAsync<List<TransactionResponse>>("/api/transactions", JsonOptions);
+        all.ShouldNotBeNull();
+        all.Single(t => t.TransactionId == id).Status.ShouldBe(TransactionStatus.Completed);
+    }
+
+    [Fact]
+    public async Task Capacity_is_read_from_configuration()
+    {
+        var client = factory
+            .WithWebHostBuilder(builder => builder.UseSetting("Transactions:Capacity", "2"))
+            .CreateClient();
+
+        for (var i = 0; i < 3; i++)
+        {
+            await client.PostAsJsonAsync("/api/transactions", new
+            {
+                transactionId = Guid.NewGuid(),
+                amount = 10m,
+                currency = "USD",
+                status = "Pending",
+                timestamp = BaseTime.AddMinutes(i)
+            });
+        }
+
+        var all = await client.GetFromJsonAsync<List<TransactionResponse>>("/api/transactions", JsonOptions);
+        all.ShouldNotBeNull();
+        all.Count.ShouldBe(2);
+    }
+
     // Sent as plain JSON in the assignment format, exactly as an external system would.
     private Task<HttpResponseMessage> PostAsync(Guid id, string status, DateTimeOffset timestamp) =>
         _client.PostAsJsonAsync("/api/transactions", new
