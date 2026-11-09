@@ -4,8 +4,10 @@ using FinancialMonitor.Api.Repositories;
 
 namespace FinancialMonitor.Api.Services;
 
-public class TransactionService(ITransactionRepository repository, ITransactionNotifier notifier)
-    : ITransactionService
+public class TransactionService(
+    ITransactionRepository repository,
+    ITransactionNotifier notifier,
+    ILogger<TransactionService> logger) : ITransactionService
 {
     // Matches the number of rows the dashboard displays.
     private const int SnapshotSize = 500;
@@ -17,9 +19,23 @@ public class TransactionService(ITransactionRepository repository, ITransactionN
 
         // A stale update changed nothing, so there is nothing to tell the clients.
         if (result != UpsertResult.IgnoredStale)
-            await notifier.NotifyAsync(transaction, cancellationToken);
+            await NotifySafelyAsync(transaction, cancellationToken);
 
         return result;
+    }
+
+    // The transaction is already stored, so a failed broadcast must not fail the request.
+    // Clients catch up when they reload the snapshot (on reconnect).
+    private async Task NotifySafelyAsync(Transaction transaction, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await notifier.NotifyAsync(transaction, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Broadcasting transaction {TransactionId} failed", transaction.TransactionId);
+        }
     }
 
     public IReadOnlyList<Transaction> GetLatest() => repository.GetLatest(SnapshotSize);

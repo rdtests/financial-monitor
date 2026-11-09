@@ -14,6 +14,7 @@ builder.Services.AddControllers(options =>
 builder.Services.AddSignalR()
     .AddJsonProtocol(options => ApiJson.Configure(options.PayloadSerializerOptions));
 builder.Services.AddHealthChecks();
+builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -25,6 +26,11 @@ builder.Services.AddSingleton<ITransactionNotifier, SignalRTransactionNotifier>(
 builder.Services.AddSingleton<ITransactionService, TransactionService>();
 
 var app = builder.Build();
+
+// One global handler instead of try/catch in controllers: logs the exception and returns a generic
+// 500 ProblemDetails with a traceId, without exception details. In Development, .NET 8 shows the
+// Developer Exception Page (with stack trace) instead, which is intended for local debugging.
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

@@ -3,7 +3,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FinancialMonitor.Api.Contracts;
 using FinancialMonitor.Api.Models;
+using FinancialMonitor.Api.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace FinancialMonitor.Tests.Integration;
 
@@ -94,9 +100,39 @@ public class TransactionsApiTests(WebApplicationFactory<Program> factory)
         all.Count.ShouldBe(2);
     }
 
+    [Fact]
+    public async Task Unexpected_exception_returns_500_ProblemDetails_with_traceId_and_no_stack_trace()
+    {
+        var failingService = Substitute.For<ITransactionService>();
+        failingService.ProcessAsync(Arg.Any<Transaction>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("secret internal detail"));
+
+        // WebApplicationFactory runs in Development by default, where the Developer Exception Page
+        // returns a stack trace on purpose. Production is what Docker / Kubernetes run.
+        var client = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.ConfigureTestServices(services => services.AddSingleton(failingService));
+        }).CreateClient();
+
+        var response = await PostAsync(client, Guid.NewGuid(), "Pending", BaseTime);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.InternalServerError);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        var body = await response.Content.ReadAsStringAsync();
+        var problem = JsonDocument.Parse(body).RootElement;
+        problem.GetProperty("status").GetInt32().ShouldBe(500);
+        problem.GetProperty("traceId").GetString().ShouldNotBeNullOrEmpty();
+        body.ShouldNotContain("secret internal detail");
+        body.ShouldNotContain("InvalidOperationException");
+    }
+
     // Sent as plain JSON in the assignment format, exactly as an external system would.
     private Task<HttpResponseMessage> PostAsync(Guid id, string status, DateTimeOffset timestamp) =>
-        _client.PostAsJsonAsync("/api/transactions", new
+        PostAsync(_client, id, status, timestamp);
+
+    private static Task<HttpResponseMessage> PostAsync(HttpClient client, Guid id, string status, DateTimeOffset timestamp) =>
+        client.PostAsJsonAsync("/api/transactions", new
         {
             transactionId = id,
             amount = 1500.50m,

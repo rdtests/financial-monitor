@@ -146,6 +146,24 @@ Every POST is validated before it reaches the controller. An invalid request get
 
 Field rules run first; the cross-field checks (`transactionId` not empty, `amount` > 0) run once those pass.
 
+### Error handling
+
+Every error response is `ProblemDetails` (RFC 7807), so clients parse one format.
+
+| Code | When |
+|------|------|
+| `400` | Invalid input (see [Validation](#validation)) |
+| `500` | Unexpected exception: a generic `ProblemDetails` with a `traceId` for correlating with the server log. No exception details or stack trace outside Development |
+
+- A single global handler (`AddProblemDetails` + `UseExceptionHandler`) instead of try/catch in controllers.
+  In Development, .NET 8 shows the Developer Exception Page with the stack trace instead; that is intended for
+  local debugging, and Docker / Kubernetes run as Production.
+- **A failed SignalR broadcast does not fail the request.** The transaction is already stored, so the service
+  logs a warning and returns success; dashboards catch up when they reload the snapshot.
+- A client that disconnects does not affect the request or the other connected clients.
+- Deliberately not used: `401`/`403` (no authentication in the MVP), `404` (no get-by-id endpoint),
+  `409` (a stale update is expected, not a conflict).
+
 ### Concurrency
 
 - **Repository:** a single `lock` guards the dictionary. `Upsert` is check-then-act (read the stored timestamp,

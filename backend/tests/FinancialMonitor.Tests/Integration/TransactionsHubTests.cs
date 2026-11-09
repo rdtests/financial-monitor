@@ -43,6 +43,21 @@ public class TransactionsHubTests(WebApplicationFactory<Program> factory)
         await Task.WhenAll(receivedByFirst, receivedBySecond).WaitAsync(ReceiveTimeout);
     }
 
+    [Fact]
+    public async Task Disconnected_client_does_not_affect_the_request_or_the_other_clients()
+    {
+        var id = Guid.NewGuid();
+        var leaving = await ConnectAsync();
+        await using var staying = await ConnectAsync();
+        var receivedByStaying = ListenFor(staying, id);
+        await leaving.DisposeAsync();
+
+        var response = await PostAsync(id);
+
+        response.IsSuccessStatusCode.ShouldBeTrue();
+        await receivedByStaying.WaitAsync(ReceiveTimeout);
+    }
+
     private async Task<HubConnection> ConnectAsync()
     {
         // TestServer runs in memory, so the client is routed through its handler (long polling).

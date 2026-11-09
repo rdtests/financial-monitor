@@ -2,7 +2,10 @@ using FinancialMonitor.Api.Models;
 using FinancialMonitor.Api.Notifiers;
 using FinancialMonitor.Api.Repositories;
 using FinancialMonitor.Api.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Testing;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace FinancialMonitor.Tests.Services;
 
@@ -10,6 +13,7 @@ public class TransactionServiceTests
 {
     private readonly ITransactionRepository _repository = Substitute.For<ITransactionRepository>();
     private readonly ITransactionNotifier _notifier = Substitute.For<ITransactionNotifier>();
+    private readonly FakeLogger<TransactionService> _logger = new();
     private readonly TransactionService _service;
 
     private readonly Transaction _transaction = new(
@@ -18,7 +22,23 @@ public class TransactionServiceTests
 
     public TransactionServiceTests()
     {
-        _service = new TransactionService(_repository, _notifier);
+        _service = new TransactionService(_repository, _notifier, _logger);
+    }
+
+    [Fact]
+    public async Task Broadcast_failure_does_not_fail_the_request_and_is_logged_as_warning()
+    {
+        _repository.Upsert(_transaction).Returns(UpsertResult.Created);
+        _notifier.NotifyAsync(Arg.Any<Transaction>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("hub unavailable"));
+
+        var result = await _service.ProcessAsync(_transaction, CancellationToken.None);
+
+        // The transaction is already stored, so the request still succeeds.
+        result.ShouldBe(UpsertResult.Created);
+        _repository.Received(1).Upsert(_transaction);
+        _logger.Collector.LatestRecord.Level.ShouldBe(LogLevel.Warning);
+        _logger.Collector.LatestRecord.Exception.ShouldBeOfType<InvalidOperationException>();
     }
 
     [Fact]
