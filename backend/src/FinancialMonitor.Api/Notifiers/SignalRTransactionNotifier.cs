@@ -1,3 +1,4 @@
+using FinancialMonitor.Api.Contracts;
 using FinancialMonitor.Api.Hubs;
 using FinancialMonitor.Api.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -10,6 +11,8 @@ namespace FinancialMonitor.Api.Notifiers;
 /// </summary>
 public class SignalRTransactionNotifier(IHubContext<TransactionsHub> hubContext) : ITransactionNotifier
 {
+    // Sends the API contract, not the domain model: the same shape GET /api/transactions returns.
     public Task NotifyAsync(Transaction transaction, CancellationToken cancellationToken) =>
-        hubContext.Clients.All.SendAsync(TransactionsHub.TransactionUpdatedEvent, transaction, cancellationToken);
+        hubContext.Clients.All.SendAsync(
+            TransactionsHub.TransactionUpdatedEvent, transaction.ToResponse(), cancellationToken);
 }

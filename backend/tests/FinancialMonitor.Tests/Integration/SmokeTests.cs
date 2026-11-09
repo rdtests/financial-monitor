@@ -16,4 +16,14 @@ public class SmokeTests(WebApplicationFactory<Program> factory)
 
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Health_endpoint_returns_200_for_kubernetes_probes()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/healthz");
+
+        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+    }
 }

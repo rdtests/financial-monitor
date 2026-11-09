@@ -7,6 +7,9 @@ namespace FinancialMonitor.Api.Services;
 public class TransactionService(ITransactionRepository repository, ITransactionNotifier notifier)
     : ITransactionService
 {
+    // Matches the number of rows the dashboard displays.
+    private const int SnapshotSize = 500;
+
     public async Task<UpsertResult> ProcessAsync(Transaction transaction, CancellationToken cancellationToken)
     {
         // Store first, then broadcast: clients are only told about data that is already persisted.
@@ -14,4 +17,6 @@ public class TransactionService(ITransactionRepository repository, ITransactionN
         await notifier.NotifyAsync(transaction, cancellationToken);
         return result;
     }
+
+    public IReadOnlyList<Transaction> GetLatest() => repository.GetLatest(SnapshotSize);
 }
