@@ -1,43 +1,30 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useReducer } from 'react'
+import { apiGet } from '../../shared/api/apiClient'
 import type { Transaction } from '../../shared/api/types'
 import { TransactionList } from './TransactionList'
+import { initialTransactionsState, selectTransactions, transactionsReducer } from './transactionsReducer'
 import { useTransactionsHub } from './useTransactionsHub'
-
-async function fetchTransactions(): Promise<Transaction[]> {
-  const response = await fetch('/api/transactions')
-  if (!response.ok) throw new Error(`Request failed with status ${response.status}`)
-  return response.json() as Promise<Transaction[]>
-}
 
 /** Live dashboard: snapshot from GET on connect, then real-time updates from SignalR. */
 export function MonitorPage() {
-  // Keyed by transactionId, so an update replaces the existing row instead of adding a new one.
-  // Walking-skeleton merge: last write wins. The "ignore older timestamp" rule arrives with the reducer.
-  const [byId, setById] = useState(() => new Map<string, Transaction>())
+  const [state, dispatch] = useReducer(transactionsReducer, initialTransactionsState)
 
-  const merge = useCallback((incoming: Transaction[]) => {
-    setById((previous) => {
-      const next = new Map(previous)
-      for (const transaction of incoming) next.set(transaction.transactionId, transaction)
-      return next
-    })
-  }, [])
-
-  const onTransaction = useCallback((transaction: Transaction) => merge([transaction]), [merge])
+  const onTransaction = useCallback(
+    (transaction: Transaction) => dispatch({ type: 'batchReceived', transactions: [transaction] }),
+    [],
+  )
 
   // Connect first, then load the snapshot, so no event is missed in between.
+  // The reducer ignores older data, so an event that arrived before the snapshot is not overwritten.
   const onConnected = useCallback(() => {
-    fetchTransactions()
-      .then(merge)
+    apiGet<Transaction[]>('/api/transactions')
+      .then((transactions) => dispatch({ type: 'snapshotLoaded', transactions }))
       .catch((error: unknown) => console.error('Loading transactions failed', error))
-  }, [merge])
+  }, [])
 
   useTransactionsHub({ onTransaction, onConnected })
 
-  const transactions = useMemo(
-    () => [...byId.values()].sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
-    [byId],
-  )
+  const transactions = useMemo(() => selectTransactions(state), [state])
 
   return (
     <section>

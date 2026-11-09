@@ -62,8 +62,17 @@ A transaction sent from the simulator appears on the dashboard immediately. The 
 single origin.
 
 **How the dashboard loads:** it connects to the SignalR hub first and only then fetches the
-`GET /api/transactions` snapshot, so no event can be missed between the two. Rows are kept in a map keyed by
-`transactionId`, so an update replaces its row instead of adding a new one.
+`GET /api/transactions` snapshot, so no event can be missed between the two.
+
+**Dashboard state** lives in a `useReducer` (`transactionsReducer`), with no state library. Rows are kept in a
+map keyed by `transactionId`, so an update replaces its row. The reducer applies the same rule as the server,
+"ignore an older timestamp" (compared as instants, not strings), which makes merging idempotent: a live event
+that arrived before the snapshot is not overwritten by it, and broadcasts arriving in reverse order are harmless.
+At most 500 rows are kept in the browser (the newest).
+
+**API calls** go through `shared/api/apiClient.ts`, which turns every failure into one `ApiError` with a `kind`:
+`validation` (400, with messages per field), `server` (500) or `network` (backend unreachable, including
+`502`/`504` from the dev proxy). Components never parse HTTP responses themselves.
 
 ## Tests
 
@@ -74,6 +83,10 @@ dotnet test
 cd frontend
 npm test
 ```
+
+Backend: xUnit + Shouldly + NSubstitute, including integration tests with `WebApplicationFactory`.
+Frontend: Vitest, for pure logic only (reducer, API client): the parts where bugs hide, without the cost of
+component tests.
 
 Developed test-first: each step's tests were written and seen failing before the implementation.
 
