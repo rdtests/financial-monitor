@@ -37,6 +37,20 @@ Developed test-first: each step's tests were written and seen failing before the
 
 Tests also run automatically on every push via GitHub Actions (`.github/workflows/ci.yml`).
 
+## Domain model
+
+A transaction follows the assignment's JSON structure:
+
+```json
+{ "transactionId": "guid", "amount": 1500.50, "currency": "USD", "status": "Pending | Completed | Failed", "timestamp": "2024-01-15T10:00:00Z" }
+```
+
+- `transactionId` is the key: a second transaction with the same id is an **update** of the first
+  (e.g. its status moves from `Pending` to `Completed`), not a new record.
+- `amount` is `decimal`, never `double`, so money values are not affected by binary floating-point rounding.
+- `Transaction` is an immutable `record`; an update replaces the stored instance.
+- Storage is in memory (`InMemoryTransactionRepository`, behind `ITransactionRepository`).
+
 ## Key Decisions
 
 - **Walking skeleton first.** A thin end-to-end slice (form → API → storage → SignalR → dashboard) is built
