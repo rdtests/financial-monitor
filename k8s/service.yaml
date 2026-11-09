@@ -1,0 +1,25 @@
+# Stable in-cluster address for the Financial Monitor pods (UI, API and SignalR all on one port).
+apiVersion: v1
+kind: Service
+metadata:
+  name: financial-monitor
+  labels:
+    app: financial-monitor
+spec:
+  type: ClusterIP
+  selector:
+    app: financial-monitor
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+# External access would go through an Ingress (not included: it depends on the cluster's ingress controller).
+# What it needs for this app, e.g. with ingress-nginx:
+#
+#   - Route "/" to this Service on port 80 (UI, /api and /hubs share the origin, so no CORS is needed).
+#   - Allow the WebSocket upgrade used by SignalR on /hubs (ingress-nginx does this by default).
+#   - An idle timeout well above SignalR's 15s keep-alive, so live connections are not cut:
+#       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+#       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+#   - TLS terminated at the Ingress.

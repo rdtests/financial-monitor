@@ -54,6 +54,22 @@ built in separate stages, and only the published app and the static files are co
 `aspnet:8.0-alpine` (about 160 MB, no SDK or Node). It runs as the image's non-root `app` user on port 8080,
 in the `Production` environment (no Swagger, no stack traces).
 
+### Deploying to Kubernetes
+
+```bash
+kubectl apply -f k8s/
+```
+
+- [`k8s/deployment.yaml`](k8s/deployment.yaml) – the container with resource requests/limits, readiness and
+  liveness probes on `/healthz`, a non-root security context, and a rolling update that starts the new pod
+  before stopping the old one (dashboards reconnect automatically).
+- [`k8s/service.yaml`](k8s/service.yaml) – a `ClusterIP` Service on port 80. External access would go through
+  an Ingress, which depends on the cluster; the file notes what it needs (WebSocket upgrade, long idle timeout).
+
+The image name in `deployment.yaml` is a placeholder for your registry. **`replicas` is 1 on purpose:** state and
+SignalR connections are per pod, so more replicas need the changes in
+[Scaling to multiple pods](#scaling-to-multiple-pods) first.
+
 ### Running the tests
 
 Each from the repository root:

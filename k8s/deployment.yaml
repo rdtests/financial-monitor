@@ -1,0 +1,81 @@
+# Runs the Financial Monitor container (API + SignalR hub + built frontend, see ../Dockerfile).
+#
+#   kubectl apply -f k8s/
+#
+# IMPORTANT – why replicas is 1:
+# Each pod keeps transactions in its own memory and holds its own SignalR connections. With several replicas,
+# a dashboard connected to pod A would not receive transactions posted to pod B, and GET /api/transactions would
+# return a different snapshot depending on which pod answered. Scaling out requires the two changes described in
+# docs/adr/0001-multi-pod-sync.md (a SignalR Redis backplane and a shared repository). Until then, keep 1 replica.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: financial-monitor
+  labels:
+    app: financial-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: financial-monitor
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Start the new pod before stopping the old one. Dashboards on the old pod lose their WebSocket,
+      # reconnect automatically (unlimited retry) and reload the snapshot.
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: financial-monitor
+    spec:
+      # Time for in-flight requests to finish when a pod is stopped.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        # The image already runs as the unprivileged "app" user (UID 1654); enforce it here too.
+        runAsNonRoot: true
+        runAsUser: 1654
+        runAsGroup: 1654
+      containers:
+        - name: api
+          # Replace with the image pushed to your registry, e.g. myregistry.azurecr.io/financial-monitor:1.0.0.
+          # A fixed tag (not "latest") makes rollouts and rollbacks predictable.
+          image: financial-monitor:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            # Number of transactions kept in memory (see README, Domain rules).
+            - name: Transactions__Capacity
+              value: "1000"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              # Memory is bounded by Transactions:Capacity, so a fixed limit is safe.
+              memory: 256Mi
+          # Both probes use the health endpoint the API exposes for this purpose.
+          readinessProbe:
+            # Receives traffic only once it answers.
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            # Restarted if it stops answering.
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
