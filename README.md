@@ -255,6 +255,16 @@ The assignment requires that 100 transactions arriving quickly do not freeze the
 To measure: open DevTools → Performance on the dashboard tab, start recording, press **Send burst of 100** on
 the simulator, and check for long tasks.
 
+## Scaling to multiple pods
+
+With several replicas, a client connected to Pod A would not see a transaction posted to Pod B, and each pod
+would hold a different in-memory state. The design for solving both is in
+**[ADR 0001: Synchronizing state and live updates across pods](docs/adr/0001-multi-pod-sync.md)**:
+
+- **Live updates:** a SignalR Redis backplane, so a broadcast from any pod reaches clients on every pod.
+- **State:** a shared implementation of `ITransactionRepository` (SQL or Redis) with an atomic, timestamp-guarded
+  upsert, so every pod returns the same snapshot and applies the same rule.
+
 ## Security
 
 - No authentication in this MVP.
@@ -291,7 +301,7 @@ the simulator, and check for long tasks.
 ## Known limitations
 
 - **Single instance.** State and SignalR connections live in one process; running several replicas needs shared
-  state and a backplane.
+  state and a backplane (see [Scaling to multiple pods](#scaling-to-multiple-pods)).
 - **In-memory storage.** Restarting the backend loses all transactions. An open dashboard keeps the rows it
   already has, because reloading merges into the current state rather than replacing it.
 - **Evicted transactions are forgotten.** Once a transaction has been removed at capacity, its timestamp is no
