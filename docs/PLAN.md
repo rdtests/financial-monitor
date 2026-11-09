@@ -450,7 +450,7 @@ Reducer:
 | # | שלב | תוצר | בדיקות | הצעת commit |
 |---|-----|------|--------|-------------|
 | 10 | State + apiClient | `transactionsReducer` (כולל כלל ה-timestamp), `apiClient`, `ApiError` | ו' – reducer, apiClient | `feat(ui): reducer and api client` |
-| 11 | `/add` מלא | generator, burst של 100, שגיאות לפי שדה, `SubmitResult`, הודעת `IgnoredStale` | – (UI) | `feat(ui): complete simulator` |
+| 11 | `/add` מלא | generator, burst של 100, שליחת עדכון ל-id קיים (lifecycle: ‏Pending → Completed/Failed), שגיאות לפי שדה, `SubmitResult`, הודעת `IgnoredStale` | – (UI) | `feat(ui): complete simulator` |
 | 12 | `/monitor` מלא | `StatusBadge`, `FilterBar` + `filterTransactions`, `ConnectionStatus` (retry ללא הגבלה), `ErrorBanner`, טעינה מחדש אחרי reconnect | ו' – filterTransactions | `feat(ui): statuses, filters and reconnect` |
 | 13 | ביצועים | `createBatcher`, תקרת 500, `React.memo`, מדידה עם burst | ו' – createBatcher | `perf(ui): batch updates` |
 | 14 | ליטוש README | קריאה מלאה, תיקון חזרות, ווידוא הוראות הרצה מ-clone נקי | – | `docs: polish readme` |

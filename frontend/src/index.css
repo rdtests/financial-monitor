@@ -82,3 +82,43 @@ body {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.8rem;
 }
+
+.form .field-error {
+  color: #c62828;
+  font-size: 0.8rem;
+}
+
+.form input[aria-invalid='true'] {
+  border: 1px solid #c62828;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.submit-result {
+  margin: 1rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid;
+  max-width: 640px;
+}
+
+.submit-result p,
+.submit-result ul {
+  margin: 0;
+}
+
+.submit-result--success { border-color: #2e7d32; background: #e8f5e9; }
+.submit-result--info    { border-color: #1565c0; background: #e3f2fd; }
+.submit-result--warning { border-color: #ef6c00; background: #fff3e0; }
+.submit-result--error   { border-color: #c62828; background: #ffebee; }
+
+.last-sent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}

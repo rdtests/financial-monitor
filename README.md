@@ -61,6 +61,17 @@ A transaction sent from the simulator appears on the dashboard immediately. The 
 `/api` and `/hubs` (including the WebSocket upgrade) to the backend on port 5080, so the browser talks to a
 single origin.
 
+**Transaction Simulator (`/add`)** plays the external system:
+
+- **Send** – a new transaction from the form. The form does no client-side validation on purpose (`noValidate`):
+  the server is the source of truth, so its `400` errors appear next to each field (try an empty amount or `0`).
+- **Send random** – a random transaction (mostly `Pending`).
+- **Send burst of 100** – 100 random transactions in parallel, for checking that the dashboard stays responsive.
+  The result reports how many succeeded and failed (`Promise.allSettled`).
+- **Last sent** – follow-up updates for the last accepted transaction (same `transactionId`): **Complete** /
+  **Fail** walk the lifecycle (`Pending → Completed / Failed`), and **Stale update** sends an older timestamp,
+  which the server answers with `IgnoredStale` (shown as information, not an error).
+
 **How the dashboard loads:** it connects to the SignalR hub first and only then fetches the
 `GET /api/transactions` snapshot, so no event can be missed between the two.
 
