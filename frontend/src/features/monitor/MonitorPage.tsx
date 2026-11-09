@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { apiGet } from '../../shared/api/apiClient'
 import { toApiError, type ApiError } from '../../shared/api/ApiError'
 import type { Transaction } from '../../shared/api/types'
 import { ConnectionStatus } from './ConnectionStatus'
+import { createBatcher, type Batcher } from './createBatcher'
 import { ErrorBanner } from './ErrorBanner'
 import { FilterBar } from './FilterBar'
 import { filterTransactions, type StatusFilter } from './filterTransactions'
@@ -17,10 +18,15 @@ export function MonitorPage() {
   const [filter, setFilter] = useState<StatusFilter>('All')
   const [loadError, setLoadError] = useState<ApiError | null>(null)
 
-  const onTransaction = useCallback(
-    (transaction: Transaction) => dispatch({ type: 'batchReceived', transactions: [transaction] }),
-    [],
-  )
+  // Live messages are buffered and dispatched together, so a burst of 100 causes one render, not 100.
+  const batcherRef = useRef<Batcher<Transaction> | null>(null)
+  useEffect(() => {
+    const batcher = createBatcher<Transaction>((transactions) => dispatch({ type: 'batchReceived', transactions }))
+    batcherRef.current = batcher
+    return () => batcher.dispose()
+  }, [])
+
+  const onTransaction = useCallback((transaction: Transaction) => batcherRef.current?.add(transaction), [])
 
   // Runs on first connect, after every reconnect, and from the Retry button.
   // The reducer ignores older data, so reloading never overwrites newer live events.

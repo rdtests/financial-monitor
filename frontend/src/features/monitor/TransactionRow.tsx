@@ -1,7 +1,12 @@
+import { memo } from 'react'
 import type { Transaction } from '../../shared/api/types'
 import { StatusBadge } from './StatusBadge'
 
-export function TransactionRow({ transaction }: { transaction: Transaction }) {
+/**
+ * Memoized: the reducer keeps the same object for a transaction that did not change, so when a batch
+ * arrives only new and updated rows re-render, not all 500.
+ */
+export const TransactionRow = memo(function TransactionRow({ transaction }: { transaction: Transaction }) {
   return (
     <tr>
       <td>{new Date(transaction.timestamp).toLocaleTimeString()}</td>
@@ -12,8 +17,16 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
       </td>
     </tr>
   )
-}
+})
+
+// Creating Intl.NumberFormat is relatively expensive, so one formatter per currency is reused.
+const formatters = new Map<string, Intl.NumberFormat>()
 
 function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
+  let formatter = formatters.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(undefined, { style: 'currency', currency })
+    formatters.set(currency, formatter)
+  }
+  return formatter.format(amount)
 }

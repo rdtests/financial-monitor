@@ -97,6 +97,22 @@ At most 500 rows are kept in the browser (the newest).
 `validation` (400, with messages per field), `server` (500) or `network` (backend unreachable, including
 `502`/`504` from the dev proxy). Components never parse HTTP responses themselves.
 
+### Staying responsive under bursts
+
+The assignment requires that 100 transactions arriving quickly do not freeze the browser:
+
+1. **Batching** – SignalR messages are buffered (`createBatcher`) and dispatched to the reducer together at most
+   every 100ms, so a burst of 100 messages causes one render instead of 100. The batcher is plain TypeScript,
+   so a test proves that 100 rapid messages produce a single flush.
+2. **Bounded list** – at most 500 rows are kept and rendered.
+3. **`React.memo` on `TransactionRow`** – unchanged transactions keep the same object in the reducer, so only
+   new and updated rows re-render.
+4. **No virtualization** (`react-window`) – 500 rows is a small DOM, and virtualization would complicate the row
+   animations. It would be added only if measurement showed long tasks.
+
+To measure: open DevTools → Performance, start recording, press **Send burst of 100** on the simulator, and
+check the dashboard tab for long tasks.
+
 ## Tests
 
 ```bash
@@ -108,7 +124,7 @@ npm test
 ```
 
 Backend: xUnit + Shouldly + NSubstitute, including integration tests with `WebApplicationFactory`.
-Frontend: Vitest, for pure logic only (reducer, API client): the parts where bugs hide, without the cost of
+Frontend: Vitest, for pure logic only (reducer, API client, filter, batcher): the parts where bugs hide, without the cost of
 component tests.
 
 Developed test-first: each step's tests were written and seen failing before the implementation.
@@ -244,6 +260,8 @@ once. Through HTTP, parallel POSTs got `500` responses. With the lock, all pass 
 - **A single `lock` in the repository, not `ConcurrentDictionary`.** The upsert is a check-and-set across several
   steps; a lock makes it atomic and readable, while `AddOrUpdate` may run its delegate more than once and cannot
   cleanly report Created / Updated / IgnoredStale. Contention is short because no I/O happens under the lock.
+- **Client-side batching of live updates.** 100 messages = 1 render. Simpler than throttling on the server and
+  keeps every message; the cost is up to 100ms of extra latency, which is not noticeable on a dashboard.
 - **Frontend organized by feature.** Each route is a self-contained slice (`features/simulator` for `/add`,
   `features/monitor` for `/monitor`) with its own components, hooks and state; only code both need lives in
   `shared/`.
