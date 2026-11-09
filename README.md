@@ -51,8 +51,21 @@ A transaction follows the assignment's JSON structure:
 - `Transaction` is an immutable `record`; an update replaces the stored instance.
 - Storage is in memory (`InMemoryTransactionRepository`, behind `ITransactionRepository`).
 
+## Backend architecture
+
+```
+TransactionService ── ITransactionRepository  (store)
+                   └─ ITransactionNotifier    (broadcast via SignalR hub "TransactionUpdated")
+```
+
+The service stores a transaction first and only then broadcasts it, so clients never see data that was not saved.
+Each dependency sits behind an interface and is injected, so it can be replaced (e.g. a shared repository) or
+substituted in tests.
+
 ## Key Decisions
 
 - **Walking skeleton first.** A thin end-to-end slice (form → API → storage → SignalR → dashboard) is built
   before any layer is hardened, so integration risks (proxy, SignalR, JSON field names) surface early and
   there is always a demoable system.
+- **SignalR, not raw WebSockets.** SignalR gives automatic reconnect, transport fallback and a thread-safe
+  broadcast API (`IHubContext`) out of the box, plus a built-in Redis backplane for running several pods.
