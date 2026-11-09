@@ -72,6 +72,18 @@ single origin.
   **Fail** walk the lifecycle (`Pending → Completed / Failed`), and **Stale update** sends an older timestamp,
   which the server answers with `IgnoredStale` (shown as information, not an error).
 
+**Live Dashboard (`/monitor`):**
+
+- **Status badges** – Completed green, Failed red, Pending orange, each with an icon and text so the status
+  never relies on color alone.
+- **Filter** – All / Pending / Completed / **Errors only** (Failed), purely client-side.
+- **Connection status** – `Live`, or `Reconnecting…` while the connection is down. Reconnect retries forever
+  (1s, 2s, 4s, 8s, then every 10s); SignalR's default gives up after 4 attempts, which would leave a dashboard
+  that stays open all day silently disconnected. There is therefore no Reconnect button.
+- **After a reconnect** the snapshot is reloaded in the background, because SignalR does not replay events
+  missed while disconnected. The reducer ignores older data, so this never creates duplicates or rolls rows back.
+- **Snapshot load failure** – a banner with a Retry button; live events keep arriving meanwhile.
+
 **How the dashboard loads:** it connects to the SignalR hub first and only then fetches the
 `GET /api/transactions` snapshot, so no event can be missed between the two.
 

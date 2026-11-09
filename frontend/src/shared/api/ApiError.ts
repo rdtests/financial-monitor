@@ -18,3 +18,8 @@ export class ApiError extends Error {
     this.fieldErrors = fieldErrors
   }
 }
+
+/** apiClient only throws ApiError; anything else is a bug, reported to the user as a generic server error. */
+export function toApiError(error: unknown): ApiError {
+  return error instanceof ApiError ? error : new ApiError('server', 'Unexpected error.')
+}

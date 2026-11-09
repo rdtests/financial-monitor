@@ -1,0 +1,87 @@
+.monitor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Connection status */
+.connection-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.connection-status--connected    { color: #1b5e20; background: #e8f5e9; }
+.connection-status--connecting,
+.connection-status--reconnecting { color: #e65100; background: #fff3e0; }
+
+/* Snapshot load error */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid #c62828;
+  background: #ffebee;
+}
+
+/* Filter */
+.filter-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.filter-bar button {
+  font: inherit;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid #cbd2d9;
+  background: #fff;
+  cursor: pointer;
+}
+
+.filter-bar button[aria-pressed='true'] {
+  background: #1f2933;
+  border-color: #1f2933;
+  color: #fff;
+}
+
+/* Table */
+.transactions {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.transactions th,
+.transactions td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e4e7eb;
+  text-align: left;
+}
+
+.transactions .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  color: #616e7c;
+}
+
+/* Status badge: color plus icon and text, never color alone */
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-badge--completed { color: #1b5e20; background: #c8e6c9; }
+.status-badge--failed    { color: #b71c1c; background: #ffcdd2; }
+.status-badge--pending   { color: #e65100; background: #ffe0b2; }

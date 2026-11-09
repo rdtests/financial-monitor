@@ -1,12 +1,14 @@
 import type { Transaction } from '../../shared/api/types'
+import { TransactionRow } from './TransactionRow'
 
 interface Props {
   transactions: Transaction[]
+  emptyMessage: string
 }
 
-export function TransactionList({ transactions }: Props) {
+export function TransactionList({ transactions, emptyMessage }: Props) {
   if (transactions.length === 0) {
-    return <p>No transactions yet. Send one from the Simulator.</p>
+    return <p className="empty">{emptyMessage}</p>
   }
 
   return (
@@ -21,18 +23,9 @@ export function TransactionList({ transactions }: Props) {
       </thead>
       <tbody>
         {transactions.map((t) => (
-          <tr key={t.transactionId}>
-            <td>{new Date(t.timestamp).toLocaleTimeString()}</td>
-            <td className="mono">{t.transactionId}</td>
-            <td className="amount">{formatAmount(t.amount, t.currency)}</td>
-            <td>{t.status}</td>
-          </tr>
+          <TransactionRow key={t.transactionId} transaction={t} />
         ))}
       </tbody>
     </table>
   )
-}
-
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
 }

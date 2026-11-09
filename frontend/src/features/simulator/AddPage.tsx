@@ -1,5 +1,5 @@
 import { useState, type SubmitEvent } from 'react'
-import { ApiError } from '../../shared/api/ApiError'
+import { toApiError } from '../../shared/api/ApiError'
 import type { Transaction, TransactionStatus } from '../../shared/api/types'
 import { CURRENCIES, generateTransaction, lifecycleUpdate, staleUpdate, STATUSES } from './generateTransaction'
 import { SubmitResult, type SubmitOutcome } from './SubmitResult'
@@ -37,7 +37,7 @@ export function AddPage() {
         setLastSent({ ...draft, amount: draft.amount })
       }
     } catch (error) {
-      const apiError = error instanceof ApiError ? error : new ApiError('server', 'Unexpected error.')
+      const apiError = toApiError(error)
       // Field errors are shown next to the inputs; anything else (e.g. timestamp) is listed in the result.
       const extraMessages = Object.entries(apiError.fieldErrors)
         .filter(([field]) => !fromForm || !FORM_FIELDS.includes(field))
