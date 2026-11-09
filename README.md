@@ -9,13 +9,14 @@ and pushes every change to a live dashboard used by support agents.
 
 ```
 backend/    .NET 8 solution (src/ + tests/)
-frontend/   React + TypeScript (Vite)            – coming soon
+frontend/   React + TypeScript (Vite), organized by feature (src/features/simulator, src/features/monitor)
 docs/       Assignment and implementation plan
 ```
 
 ## Prerequisites
 
 - .NET SDK 8.0 or newer (the projects target `net8.0`)
+- Node.js 22 or newer
 
 ## Running the backend
 
@@ -41,11 +42,27 @@ curl -X POST http://localhost:5080/api/transactions -H "Content-Type: applicatio
   -d '{"transactionId":"3f2b8c1e-4d5a-4b6c-8e9f-0a1b2c3d4e5f","amount":1500.50,"currency":"USD","status":"Pending","timestamp":"2024-01-15T10:00:00Z"}'
 ```
 
+## Running the frontend
+
+With the backend running, in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173/add` (Transaction Simulator). The Vite dev server proxies `/api` and `/hubs`
+to the backend on port 5080, so the browser talks to a single origin.
+
 ## Tests
 
 ```bash
 cd backend
 dotnet test
+
+cd frontend
+npm test
 ```
 
 Developed test-first: each step's tests were written and seen failing before the implementation.
@@ -104,3 +121,9 @@ name (`"Completed"`), read case-insensitively; numeric values are rejected.
 - **Controller and notifier are covered by integration tests, not mocked unit tests.** Both are thin layers;
   the value is in testing them against the real pipeline (routing, model binding, JSON, SignalR) with
   `WebApplicationFactory`.
+- **Frontend organized by feature.** Each route is a self-contained slice (`features/simulator` for `/add`,
+  `features/monitor` for `/monitor`) with its own components, hooks and state; only code both need lives in
+  `shared/`.
+- **API types written by hand** in `frontend/src/shared/api/types.ts`. With two endpoints and five fields this is
+  simpler than code generation and adds no build step. In a larger system the types would be generated from the
+  OpenAPI document, to prevent drift between client and server.
