@@ -52,8 +52,18 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/add` (Transaction Simulator). The Vite dev server proxies `/api` and `/hubs`
-to the backend on port 5080, so the browser talks to a single origin.
+Open two browser tabs:
+
+- `http://localhost:5173/monitor` – Live Dashboard
+- `http://localhost:5173/add` – Transaction Simulator
+
+A transaction sent from the simulator appears on the dashboard immediately. The Vite dev server proxies
+`/api` and `/hubs` (including the WebSocket upgrade) to the backend on port 5080, so the browser talks to a
+single origin.
+
+**How the dashboard loads:** it connects to the SignalR hub first and only then fetches the
+`GET /api/transactions` snapshot, so no event can be missed between the two. Rows are kept in a map keyed by
+`transactionId`, so an update replaces its row instead of adding a new one.
 
 ## Tests
 
