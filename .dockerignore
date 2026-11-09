@@ -1,0 +1,15 @@
+# Keep the build context small and avoid copying local build output into the image.
+**/bin/
+**/obj/
+**/node_modules/
+frontend/dist/
+backend/tests/
+
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+docs/
+k8s/
+*.md

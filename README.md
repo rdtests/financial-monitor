@@ -39,6 +39,21 @@ and pushes every change to a live dashboard used by support agents.
 The Vite dev server proxies `/api` and `/hubs` (including the WebSocket upgrade) to the backend, so the browser
 talks to a single origin.
 
+### Running with Docker
+
+```bash
+docker build -t financial-monitor .
+docker run -p 8080:8080 financial-monitor
+```
+
+Open `http://localhost:8080/monitor` and `http://localhost:8080/add`. In the container the API also serves the
+built frontend, so UI, API and SignalR share one origin.
+
+The [`Dockerfile`](Dockerfile) is multi-stage: the frontend (`node:24-alpine`) and the backend (.NET SDK) are
+built in separate stages, and only the published app and the static files are copied into
+`aspnet:8.0-alpine` (about 160 MB, no SDK or Node). It runs as the image's non-root `app` user on port 8080,
+in the `Production` environment (no Swagger, no stack traces).
+
 ### Running the tests
 
 Each from the repository root:
@@ -192,7 +207,7 @@ Field rules run first; the cross-field checks (`transactionId` not empty, `amoun
 - **A single global handler** (`AddProblemDetails` + `UseExceptionHandler`) instead of try/catch in controllers.
   An unexpected exception returns a generic `500` with a `traceId` for correlating with the server log, and no
   exception details. In Development, .NET 8 shows the Developer Exception Page with the stack trace instead;
-  that is intended for local debugging only.
+  that is intended for local debugging only. The container runs as `Production`.
 - **A failed SignalR broadcast does not fail the request.** The transaction is already stored, so the service
   logs a warning and returns success; dashboards catch up when they reload the snapshot.
 - **A client that disconnects** does not affect the request or the other connected clients.
@@ -288,8 +303,8 @@ would hold a different in-memory state. The design for solving both is in
 - **A single `lock` in the repository, not `ConcurrentDictionary`** – see [Concurrency](#concurrency).
 - **Controller and notifier are covered by integration tests, not mocked unit tests.** Both are thin layers;
   the value is in testing them against the real pipeline (routing, model binding, JSON, SignalR).
-- **No CORS.** The frontend and the API are served from the same origin (the Vite proxy in development), so a
-  CORS policy would be code that does nothing. If the frontend were ever served from another domain, `AddCors`
+- **No CORS.** The frontend and the API are always served from the same origin (the Vite proxy in development,
+  the same container in production), so a CORS policy would be code that does nothing. If the frontend were ever served from another domain, `AddCors`
   with the origin from configuration would be added.
 - **Frontend organized by feature.** Each route is a self-contained slice with its own components, hooks and
   state; only code both need lives in `shared/`.

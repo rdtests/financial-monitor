@@ -38,9 +38,19 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// In the container the built frontend is copied into wwwroot, so the API and the UI share one origin
+// (no CORS). In development wwwroot is empty and Vite serves the UI.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.MapControllers();
 app.MapHub<TransactionsHub>("/hubs/transactions");
 app.MapHealthChecks("/healthz");
+
+// Client-side routes (/monitor, /add) are handled by React Router, so any other path gets index.html.
+// Unknown /api paths must stay a 404 for API clients rather than returning the HTML page.
+app.Map("/api/{**path}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
