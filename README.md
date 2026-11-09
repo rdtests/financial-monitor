@@ -146,6 +146,22 @@ Every POST is validated before it reaches the controller. An invalid request get
 
 Field rules run first; the cross-field checks (`transactionId` not empty, `amount` > 0) run once those pass.
 
+### Concurrency
+
+- **Repository:** a single `lock` guards the dictionary. `Upsert` is check-then-act (read the stored timestamp,
+  compare, write, maybe evict), so the whole sequence must be atomic. `GetLatest` copies inside the lock and
+  returns a snapshot, so callers never see the internal collection.
+- **No I/O under the lock.** The service broadcasts only after `Upsert` returns, so a slow client never blocks writers.
+- **Broadcasting:** SignalR's `IHubContext` is thread-safe and manages connections itself; there is no shared
+  state of our own on the broadcast side.
+- **Out-of-order broadcasts:** two concurrent updates of the same id may be broadcast in reverse order, so the
+  dashboard applies the same "ignore older timestamp" rule; merging is idempotent.
+
+**How it is tested:** the concurrency tests start all threads together on a `Barrier`, repeat each scenario many
+rounds, and fail on a timeout instead of hanging. They were run against the lock-free repository first and
+failed every time: `Dictionary` corruption exceptions, and the same new id reported `Created` by 3 threads at
+once. Through HTTP, parallel POSTs got `500` responses. With the lock, all pass deterministically.
+
 ## Security
 
 - No authentication in this MVP.
@@ -171,6 +187,9 @@ Field rules run first; the cross-field checks (`transactionId` not empty, `amoun
 - **Validation with DataAnnotations and an enum in the DTO, not a hand-written validator.** Less code, and every
   kind of bad input (missing field, invalid value, broken JSON) produces the same `ValidationProblemDetails`
   format, so the frontend parses a single shape. Validation is tested through HTTP, where it actually runs.
+- **A single `lock` in the repository, not `ConcurrentDictionary`.** The upsert is a check-and-set across several
+  steps; a lock makes it atomic and readable, while `AddOrUpdate` may run its delegate more than once and cannot
+  cleanly report Created / Updated / IgnoredStale. Contention is short because no I/O happens under the lock.
 - **Frontend organized by feature.** Each route is a self-contained slice (`features/simulator` for `/add`,
   `features/monitor` for `/monitor`) with its own components, hooks and state; only code both need lives in
   `shared/`.
