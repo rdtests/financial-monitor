@@ -29,7 +29,7 @@ The API listens on `http://localhost:5080`:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/transactions` | Ingest a transaction. `201` with `{ transactionId, outcome: "Created" }` for a new id, `200` with `outcome: "Updated"` for an existing one |
+| `POST /api/transactions` | Ingest a transaction. `201` with `{ transactionId, outcome: "Created" }` for a new id, `200` with `outcome: "Updated"` for an existing one, `400` for invalid input (see [Validation](#validation)) |
 | `GET /api/transactions` | Snapshot of the latest transactions (used by the dashboard on load) |
 | `/hubs/transactions` | SignalR hub; pushes a `TransactionUpdated` event with every change |
 | `GET /healthz` | Health check for Kubernetes probes |
@@ -109,6 +109,27 @@ The domain `Transaction` never crosses the API boundary: requests arrive as `Tra
 `TransactionResponse` (the same shape for the GET snapshot and the SignalR event). `status` is serialized as its
 name (`"Completed"`), read case-insensitively; numeric values are rejected.
 
+### Validation
+
+Every POST is validated before it reaches the controller. An invalid request gets `400 Bad Request` with a
+`ValidationProblemDetails` body listing an error per field:
+
+| Rule | Error key |
+|------|-----------|
+| All five fields are required | the field, e.g. `amount` |
+| `transactionId` is not the empty GUID | `transactionId` |
+| `amount` is greater than 0 | `amount` |
+| `currency` is 3 uppercase letters (`USD`) | `currency` |
+| `status` is `Pending`, `Completed` or `Failed` (any case) | `$.status` |
+| Malformed JSON or a wrong type (`"amount": "abc"`) | the JSON path, e.g. `$.amount` |
+
+```json
+{ "status": 400, "title": "One or more validation errors occurred.",
+  "errors": { "amount": ["The Amount field is required."], "currency": ["Currency must be a 3-letter uppercase ISO code, e.g. USD."] } }
+```
+
+Field rules run first; the cross-field checks (`transactionId` not empty, `amount` > 0) run once those pass.
+
 ## Security
 
 - No authentication in this MVP.
@@ -131,6 +152,9 @@ name (`"Completed"`), read case-insensitively; numeric values are rejected.
 - **Controller and notifier are covered by integration tests, not mocked unit tests.** Both are thin layers;
   the value is in testing them against the real pipeline (routing, model binding, JSON, SignalR) with
   `WebApplicationFactory`.
+- **Validation with DataAnnotations and an enum in the DTO, not a hand-written validator.** Less code, and every
+  kind of bad input (missing field, invalid value, broken JSON) produces the same `ValidationProblemDetails`
+  format, so the frontend parses a single shape. Validation is tested through HTTP, where it actually runs.
 - **Frontend organized by feature.** Each route is a self-contained slice (`features/simulator` for `/add`,
   `features/monitor` for `/monitor`) with its own components, hooks and state; only code both need lives in
   `shared/`.

@@ -3,10 +3,13 @@ using FinancialMonitor.Api.Hubs;
 using FinancialMonitor.Api.Notifiers;
 using FinancialMonitor.Api.Repositories;
 using FinancialMonitor.Api.Services;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+        // Validation errors are keyed by the JSON name the client sent ("amount"), not the C# name ("Amount").
+        options.ModelMetadataDetailsProviders.Add(new SystemTextJsonValidationMetadataProvider()))
     .AddJsonOptions(options => ApiJson.Configure(options.JsonSerializerOptions));
 builder.Services.AddSignalR()
     .AddJsonProtocol(options => ApiJson.Configure(options.PayloadSerializerOptions));
